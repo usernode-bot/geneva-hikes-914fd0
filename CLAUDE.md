@@ -100,22 +100,27 @@ tables you've marked private), etc.
 
 ## About Geneva hikes
 
-_(add a sentence or two of product context here so Claude Code has a
-shared understanding of what this app is for)_
+Geneva hikes helps people around Geneva pick a hiking trail and reach its
+trailhead by public transport. The first version is a hand-curated,
+read-only list of trails, each with a written step-by-step transit route
+from Geneva Cornavin and a pin on the map: no live timetable data, and no
+way to add trails from the screen. Group planning was deliberately skipped
+in the first version.
 
 ## Design
 
-This app's look. The first real version fills in the blanks; every later
-change follows it, and updates it when a request changes the look on purpose.
+This app's look, set by its first version. Every later change follows it,
+and updates it when a request changes the look on purpose.
 
-- **Palette:** _(name the accent, any second colour and the neutrals, e.g.
-  "accent: tomato red; second: basil green; neutrals: warm greys")_
-- **Signature element:** _(the one thing on screen drawn from this app's
-  subject, which no other app would have)_
+- **Palette:** accent pine green (light `47 107 79`, dark `122 196 154` on
+  the kit's tokens, with matching `--focus`); neutrals are the warm
+  stone greys the starter kit already had, unchanged.
+- **Signature element:** the trailhead-to-stop strip on every trail row —
+  a mountain icon linked by a dotted transit line to a stop icon, carrying
+  the transit line, the stop and the walk time ("Bus 8, Veyrier-Douane,
+  then 10 min walk").
 - **Type scale:** `text-title`, `text-heading`, `text-body`, `text-small`
-  _(change their sizes in `tailwind.config.js` if you must, not their number)_
-- **One fixed look:** _(only for an app drawn as its own scene, such as a
-  game: which look, and why. Otherwise delete this line.)_
+  (unchanged from the kit).
 
 The kit is in `styles/tailwind-input.css`: colour tokens with a light and
 a dark value (named in `tailwind.config.js`), and a few components

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
+
   <script>
   // usernode-dev-console@1
   (function () {
@@ -64,7 +64,7 @@
   })();
   </script>
   <title>Geneva hikes</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%237c3aed'/><circle cx='50' cy='50' r='18' fill='white'/></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%232f6b4f'/><circle cx='50' cy='50' r='18' fill='white'/></svg>">
   <!-- Tailwind, PRECOMPILED for this app (was cdn.tailwindcss.com's
        in-browser engine plus an inline tailwind.config here). The config
        moved to tailwind.config.js in the repo root; npm run build compiles
@@ -106,158 +106,348 @@
       media.addEventListener('change', applyTheme);
     })();
   </script>
+  <!-- The map: Leaflet 1.9.x with free OpenStreetMap tiles, no API key, no
+       login. If this CDN is unreachable, the script below simply leaves the
+       map panel hidden and the rest of the screen keeps working. -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body class="min-h-screen bg-ground text-fg">
-  <!-- Built from the design kit in styles/tailwind-input.css: colour tokens
-       (bg-ground, text-muted, bg-accent, ...) that are right in both looks,
-       and components (btn-primary, list, card, state-empty, ...). The real
-       app keeps the kit; CLAUDE.md's "## Design" says how. -->
-  <main class="mx-auto flex max-w-md flex-col gap-8 px-4 py-10">
+  <main class="mx-auto flex max-w-md flex-col gap-6 px-4 py-10">
 
-    <!-- usernode-starter-notice@1 — starter-template messaging. When building
-         the user's real app, replace this whole screen and delete this block,
-         both sentinel comments included. -->
-    <section class="card flex flex-col items-start gap-3">
-      <span class="rounded-full bg-raised px-3 py-1 text-small font-medium text-muted">Starter template</span>
-      <h1 class="text-title">Geneva hikes</h1>
-      <p class="text-body text-muted">Welcome to your new app! Everything on this screen is placeholder content that came with it.</p>
-      <p class="text-body text-muted">To change this app, ask Homeroom bot: tap the <strong class="font-semibold text-fg">Homeroom icon</strong>, then <strong class="font-semibold text-fg">Suggest an improvement</strong>. Describe what you'd like in plain English, and it will be turned into your real app.</p>
-    </section>
+    <!-- Browse screen: header, map, filters, trail list. -->
+    <section id="browse" class="flex flex-col gap-6">
+      <header class="flex flex-col gap-1">
+        <h1 class="text-title">Geneva hikes</h1>
+        <p class="text-body text-muted">Pick a trail and take public transport to its start.</p>
+      </header>
 
-    <section>
-      <h2 class="section-label">What's already working</h2>
-      <ul class="list">
-        <li class="list-row items-start">
-          <svg class="mt-0.5 h-5 w-5 shrink-0 text-accent" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7 7a1 1 0 0 1-1.4 0l-3-3a1 1 0 1 1 1.4-1.4L9 11.6l6.3-6.3a1 1 0 0 1 1.4 0Z" clip-rule="evenodd"/></svg>
-          <div>
-            <p class="text-body font-medium">Sign-in</p>
-            <p class="text-small text-muted">You're signed in through Homeroom automatically, with no accounts to build.</p>
-          </div>
-        </li>
-        <li class="list-row items-start">
-          <svg class="mt-0.5 h-5 w-5 shrink-0 text-accent" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7 7a1 1 0 0 1-1.4 0l-3-3a1 1 0 1 1 1.4-1.4L9 11.6l6.3-6.3a1 1 0 0 1 1.4 0Z" clip-rule="evenodd"/></svg>
-          <div>
-            <p class="text-body font-medium">Database</p>
-            <p class="text-small text-muted">Your app has its own private database, ready to store things.</p>
-          </div>
-        </li>
-        <li class="list-row items-start">
-          <svg class="mt-0.5 h-5 w-5 shrink-0 text-accent" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7 7a1 1 0 0 1-1.4 0l-3-3a1 1 0 1 1 1.4-1.4L9 11.6l6.3-6.3a1 1 0 0 1 1.4 0Z" clip-rule="evenodd"/></svg>
-          <div>
-            <p class="text-body font-medium">Live API</p>
-            <p class="text-small text-muted">The example below talks to a real server. Try it.</p>
-          </div>
-        </li>
-      </ul>
-    </section>
-    <!-- /usernode-starter-notice@1 -->
-
-    <section class="flex flex-col items-center gap-5">
-      <div class="w-full px-1">
-        <h2 class="text-heading">Try the example</h2>
-        <p class="text-small text-muted">This example will be replaced</p>
+      <!-- Trailheads on free OpenStreetMap tiles. The panel is hidden until
+           the map actually renders, so a missing CDN or unreachable tiles
+           remove only the map, never the list. -->
+      <div id="map-panel" hidden>
+        <div id="trail-map" class="h-64 w-full rounded-xl border border-line bg-raised"></div>
       </div>
 
-      <button id="press-btn" class="btn-primary h-32 w-32 rounded-full text-title active:scale-95">Press!</button>
+      <section aria-labelledby="trails-label">
+        <h2 id="trails-label" class="section-label">Trails</h2>
+        <div id="trail-filters" class="flex flex-wrap gap-2" role="group" aria-label="Filter trails by difficulty"></div>
 
-      <p id="count" class="min-h-6 text-body text-muted"></p>
-
-      <div class="w-full">
-        <h3 class="section-label">Leaderboard</h3>
         <!-- Anything that loads data shows exactly one of these at a time:
-             loading, the data, empty (it loaded, and there is nothing yet)
-             or error (it did not load). The script below switches them. -->
-        <div id="leaderboard-loading" role="status">
-          <span class="sr-only">Loading the leaderboard</span>
+             loading, the data, empty (it loaded, and there is nothing) or
+             error (it did not load). The script below switches them. -->
+        <div id="trail-list-loading" role="status" class="mt-3">
+          <span class="sr-only">Loading trails</span>
           <div class="list">
+            <div class="list-row"><div class="skeleton h-4 w-2/3"></div></div>
             <div class="list-row"><div class="skeleton h-4 w-1/2"></div></div>
-            <div class="list-row"><div class="skeleton h-4 w-1/3"></div></div>
-            <div class="list-row"><div class="skeleton h-4 w-2/5"></div></div>
+            <div class="list-row"><div class="skeleton h-4 w-3/5"></div></div>
           </div>
         </div>
-        <ol id="leaderboard" class="list" hidden></ol>
-        <div id="leaderboard-empty" class="state-empty" hidden>
-          <p class="text-heading">No presses yet</p>
-          <p class="text-body text-muted">Press the button to put your name on the board.</p>
-          <button id="leaderboard-press" class="btn-secondary">Press it</button>
+        <ul id="trail-list" class="list mt-3" hidden></ul>
+        <div id="trail-list-empty" class="state-empty" hidden>
+          <p id="trail-empty-title" class="text-heading">No trails match this filter</p>
+          <p id="trail-empty-body" class="text-body text-muted">Try another difficulty, or show every trail.</p>
+          <button id="trail-empty-all" type="button" class="btn-secondary">Show all trails</button>
         </div>
-        <div id="leaderboard-error" class="state-error" hidden>
+        <div id="trail-list-error" class="state-error" hidden>
           <svg class="h-6 w-6 text-danger" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a1 1 0 0 1 1 1v4a1 1 0 1 1-2 0V6a1 1 0 0 1 1-1Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
-          <p class="text-heading">Couldn't load the leaderboard</p>
-          <p class="text-body text-muted">Pressing still works, and every press is saved.</p>
-          <button id="leaderboard-retry" class="btn-secondary">Retry</button>
+          <p class="text-heading">Couldn't load the trails</p>
+          <p class="text-body text-muted">The list didn't load, and nothing was lost. The filters and the map come back with it.</p>
+          <button id="trail-retry" type="button" class="btn-secondary">Retry</button>
         </div>
-      </div>
+      </section>
     </section>
 
-    <p class="text-center text-small text-muted">Built on Homeroom. This template screen disappears once you build your real app.</p>
+    <!-- Trail view: shown in place of the list while reading one trail. -->
+    <section id="trail-view" hidden class="flex flex-col gap-5">
+      <button id="trail-back" type="button" class="btn-secondary self-start">Back to trails</button>
+
+      <div id="trail-view-loading" role="status">
+        <span class="sr-only">Loading the trail</span>
+        <div class="flex flex-col gap-3">
+          <div class="skeleton h-6 w-2/3"></div>
+          <div class="skeleton h-4 w-1/3"></div>
+          <div class="skeleton h-4 w-full"></div>
+          <div class="skeleton h-4 w-4/5"></div>
+        </div>
+      </div>
+
+      <div id="trail-view-content" class="flex flex-col gap-5" hidden>
+        <header class="flex flex-col gap-1">
+          <h1 id="trail-name" class="text-title"></h1>
+          <p id="trail-meta" class="text-body text-muted"></p>
+        </header>
+        <p id="trail-description" class="text-body"></p>
+        <section>
+          <h2 class="section-label">Get there</h2>
+          <ol id="trail-steps" class="list"></ol>
+        </section>
+      </div>
+
+      <div id="trail-view-error" class="state-error" hidden>
+        <svg class="h-6 w-6 text-danger" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a1 1 0 0 1 1 1v4a1 1 0 1 1-2 0V6a1 1 0 0 1 1-1Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
+        <p class="text-heading">Couldn't load this trail</p>
+        <p class="text-body text-muted">The trail view didn't load, and nothing was lost. You can still go back to the trails.</p>
+        <button id="trail-view-retry" type="button" class="btn-secondary">Retry</button>
+      </div>
+    </section>
   </main>
 
   <script>
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token') || '';
-    const headers = token ? { 'x-usernode-token': token } : {};
-    const count = document.getElementById('count');
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token') || '';
+      const headers = token ? { 'x-usernode-token': token } : {};
 
-    // The leaderboard's states, one shown at a time. Empty only when the
-    // load worked and found nothing; a failure is the error state, never
-    // "No presses yet".
-    const views = {
-      loading: document.getElementById('leaderboard-loading'),
-      list: document.getElementById('leaderboard'),
-      empty: document.getElementById('leaderboard-empty'),
-      error: document.getElementById('leaderboard-error'),
-    };
-    function show(state) {
-      for (const [name, el] of Object.entries(views)) el.hidden = name !== state;
-    }
+      const browse = document.getElementById('browse');
+      const trailView = document.getElementById('trail-view');
+      const listView = {
+        loading: document.getElementById('trail-list-loading'),
+        list: document.getElementById('trail-list'),
+        empty: document.getElementById('trail-list-empty'),
+        error: document.getElementById('trail-list-error'),
+      };
+      const detailView = {
+        loading: document.getElementById('trail-view-loading'),
+        content: document.getElementById('trail-view-content'),
+        error: document.getElementById('trail-view-error'),
+      };
 
-    async function loadLeaderboard() {
-      let leaderboard;
-      try {
-        const res = await fetch('/api/leaderboard', { headers });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        ({ leaderboard } = await res.json());
-      } catch {
-        show('error');
-        return;
+      let trails = [];
+      let filter = 'all';
+      let map = null;
+      let openedTrailId = null;
+
+      // Exactly one state of a data view shows at a time.
+      function showIn(views, state) {
+        for (const [name, el] of Object.entries(views)) el.hidden = name !== state;
       }
-      // People's names go in as text, never as HTML.
-      views.list.replaceChildren(...leaderboard.map((r, i) => {
-        const row = document.createElement('li');
-        row.className = 'list-row justify-between';
+
+      // ── Filter chips ────────────────────────────────────────────────────
+      // Whole-literal class strings: the compiler reads this file's source
+      // text, so every class name must appear whole.
+      const CHIP_ACTIVE = 'inline-flex min-h-11 items-center rounded-lg bg-accent px-4 text-body font-medium text-on-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus';
+      const CHIP_IDLE = 'inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-body font-medium text-fg hover:bg-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus';
+      const FILTERS = [['all', 'All'], ['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard']];
+      const chips = {};
+      for (const [value, label] of FILTERS) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.textContent = label;
+        chip.addEventListener('click', () => setFilter(value));
+        chips[value] = chip;
+        document.getElementById('trail-filters').appendChild(chip);
+      }
+      function setFilter(value) {
+        filter = value;
+        for (const [value_, chip] of Object.entries(chips)) {
+          chip.className = value_ === filter ? CHIP_ACTIVE : CHIP_IDLE;
+          chip.setAttribute('aria-pressed', value_ === filter ? 'true' : 'false');
+        }
+        renderList();
+      }
+
+      // ── Trail list ──────────────────────────────────────────────────────
+      const formatKm = (km) => Number(km).toFixed(1);
+
+      // The signature strip: trailhead linked by a dotted transit line to
+      // the stop, carrying the line and the walk time.
+      const MOUNTAIN_ICON = '<path d="M2.8 16.2 9.8 5l3.4 5.3 1.6-2.5 3.4 8.4H2.8Z"/>';
+      const STOP_ICON = '<circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="10" r="2.6"/>';
+      function svgIcon(pathMarkup, classes) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 20 20');
+        svg.setAttribute('fill', 'currentColor');
+        svg.setAttribute('aria-hidden', 'true');
+        svg.setAttribute('class', classes);
+        svg.innerHTML = pathMarkup; // a constant; trail names never go through here
+        return svg;
+      }
+
+      function makeStrip(t) {
+        const strip = document.createElement('span');
+        strip.className = 'flex items-center gap-2 text-small text-muted';
+        const dotted = document.createElement('span');
+        dotted.className = 'h-0 w-6 shrink-0 border-t-2 border-dotted border-accent/50';
+        const label = document.createElement('span');
+        label.className = 'min-w-0';
+        label.textContent = t.transit_line + ', ' + t.transit_stop + ', then ' + t.walk_minutes + ' min walk';
+        strip.append(
+          svgIcon(MOUNTAIN_ICON, 'h-4 w-4 shrink-0 text-accent'),
+          dotted,
+          svgIcon(STOP_ICON, 'h-4 w-4 shrink-0 text-muted'),
+          label,
+        );
+        return strip;
+      }
+
+      function rowFor(t) {
+        const li = document.createElement('li');
+        li.className = 'list-row';
+        const open = document.createElement('button');
+        open.type = 'button';
+        open.className = 'flex w-full flex-col items-stretch gap-2 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus';
+        const top = document.createElement('span');
+        top.className = 'flex items-baseline justify-between gap-3';
         const name = document.createElement('span');
-        name.textContent = (i + 1) + '. ' + r.username;
-        const presses = document.createElement('span');
-        presses.className = 'tabular-nums text-muted';
-        presses.textContent = r.presses;
-        row.append(name, presses);
-        return row;
-      }));
-      const total = leaderboard.reduce((s, r) => s + parseInt(r.presses, 10), 0);
-      count.textContent = total + (total === 1 ? ' press so far' : ' presses so far');
-      show(leaderboard.length ? 'list' : 'empty');
-    }
+        name.className = 'text-body font-medium';
+        name.textContent = t.name;
+        const meta = document.createElement('span');
+        meta.className = 'shrink-0 text-small text-muted';
+        meta.textContent = formatKm(t.distance_km) + ' km · ' + t.difficulty;
+        top.append(name, meta);
+        open.append(top, makeStrip(t));
+        open.addEventListener('click', () => openTrail(t.id));
+        li.appendChild(open);
+        return li;
+      }
 
-    async function press() {
-      try {
-        const res = await fetch('/api/press', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...headers },
-        });
-        if (res.ok) loadLeaderboard();
-        else if (res.status === 401) count.textContent = 'Sign in to press!';
-      } catch {}
-    }
+      function renderList() {
+        const shown = filter === 'all' ? trails : trails.filter((t) => t.difficulty === filter);
+        // Names go in as text, never as HTML.
+        listView.list.replaceChildren(...shown.map(rowFor));
+        if (shown.length) {
+          showIn(listView, 'list');
+        } else if (filter === 'all') {
+          document.getElementById('trail-empty-title').textContent = 'No trails yet';
+          document.getElementById('trail-empty-body').textContent = 'The list is empty for now. Check back after the next update.';
+          document.getElementById('trail-empty-all').hidden = true;
+          showIn(listView, 'empty');
+        } else {
+          document.getElementById('trail-empty-title').textContent = 'No ' + filter + ' trails';
+          document.getElementById('trail-empty-body').textContent = 'Try another difficulty, or show every trail.';
+          document.getElementById('trail-empty-all').hidden = false;
+          showIn(listView, 'empty');
+        }
+      }
 
-    document.getElementById('press-btn').addEventListener('click', press);
-    document.getElementById('leaderboard-press').addEventListener('click', press);
-    document.getElementById('leaderboard-retry').addEventListener('click', () => {
-      show('loading');
-      loadLeaderboard();
-    });
+      async function loadTrails() {
+        showIn(listView, 'loading');
+        try {
+          const res = await fetch('/api/trails', { headers });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          ({ trails } = await res.json());
+        } catch {
+          showIn(listView, 'error');
+          return;
+        }
+        renderList();
+        renderMap();
+      }
 
-    loadLeaderboard();
+      // ── Map ─────────────────────────────────────────────────────────────
+      // OpenStreetMap tiles, no API key. Any failure — no Leaflet, no
+      // tiles, a broken fitBounds — takes out only the map panel.
+      function hideMap() {
+        if (map) { try { map.remove(); } catch {} map = null; }
+        document.getElementById('map-panel').hidden = true;
+      }
+
+      function renderMap() {
+        if (typeof L === 'undefined') return; // panel stays hidden
+        try {
+          map = L.map('trail-map', { scrollWheelZoom: false });
+          L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          }).addTo(map);
+          map.on('tileerror', hideMap);
+          const bounds = [];
+          for (const t of trails) {
+            const icon = L.divIcon({
+              className: '',
+              html: '<span class="map-pin"><span class="map-pin-dot"></span></span>',
+              iconSize: [24, 24],
+              iconAnchor: [12, 12],
+            });
+            const marker = L.marker([t.start_lat, t.start_lng], { icon, title: t.name });
+            marker.on('click', () => openTrail(t.id));
+            marker.addTo(map);
+            bounds.push([t.start_lat, t.start_lng]);
+          }
+          document.getElementById('map-panel').hidden = false;
+          if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
+        } catch {
+          hideMap();
+        }
+      }
+
+      // ── Trail view ──────────────────────────────────────────────────────
+      function syncUrl(id) {
+        const p = new URLSearchParams(window.location.search);
+        if (id) p.set('trail', String(id)); else p.delete('trail');
+        const qs = p.toString();
+        history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''));
+      }
+
+      function renderTrail(t) {
+        document.getElementById('trail-name').textContent = t.name;
+        document.getElementById('trail-meta').textContent = formatKm(t.distance_km) + ' km · ' + t.difficulty;
+        document.getElementById('trail-description').textContent = t.description;
+        const steps = document.getElementById('trail-steps');
+        steps.replaceChildren(...(t.transit_steps || []).map((s, i) => {
+          const li = document.createElement('li');
+          li.className = 'list-row items-start';
+          const number = document.createElement('span');
+          number.className = 'flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/10 text-small font-medium text-accent';
+          number.textContent = String(i + 1);
+          const box = document.createElement('span');
+          box.className = 'flex min-w-0 flex-col';
+          const label = document.createElement('span');
+          label.className = 'text-body font-medium';
+          label.textContent = s.label || '';
+          const detail = document.createElement('span');
+          detail.className = 'text-small text-muted';
+          detail.textContent = s.detail || '';
+          box.append(label, detail);
+          li.append(number, box);
+          return li;
+        }));
+      }
+
+      async function openTrail(id) {
+        openedTrailId = id;
+        browse.hidden = true;
+        trailView.hidden = false;
+        showIn(detailView, 'loading');
+        syncUrl(id);
+        let trail;
+        try {
+          const res = await fetch('/api/trails/' + id, { headers });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          ({ trail } = await res.json());
+        } catch {
+          // Also covers the 404 of a stale list whose trail is gone.
+          showIn(detailView, 'error');
+          return;
+        }
+        renderTrail(trail);
+        showIn(detailView, 'content');
+      }
+
+      function backToTrails() {
+        openedTrailId = null;
+        trailView.hidden = true;
+        browse.hidden = false;
+        syncUrl(null);
+        // The map container was display:none; Leaflet needs the new size.
+        if (map) map.invalidateSize();
+      }
+
+      // ── Wire up ─────────────────────────────────────────────────────────
+      document.getElementById('trail-retry').addEventListener('click', loadTrails);
+      document.getElementById('trail-empty-all').addEventListener('click', () => setFilter('all'));
+      document.getElementById('trail-view-retry').addEventListener('click', () => openTrail(openedTrailId));
+      document.getElementById('trail-back').addEventListener('click', backToTrails);
+
+      setFilter('all');
+      loadTrails();
+
+      // A trail can be opened straight from a shared link: /?trail=<id>.
+      const fromUrl = parseInt(params.get('trail'), 10);
+      if (fromUrl) openTrail(fromUrl);
+    })();
   </script>
 </body>
 </html>
