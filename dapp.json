@@ -2,5 +2,28 @@
   "icon": {
     "emoji": "🥾"
   },
-  "secrets": []
+  "secrets": [],
+  "tests": [
+    {
+      "name": "Trail list loads",
+      "path": "/",
+      "expectSelector": "#trail-list"
+    },
+    {
+      "name": "Filter chips show difficulties",
+      "path": "/",
+      "expectText": "Medium"
+    },
+    {
+      "id": "trails.trail-view",
+      "name": "Trail view opens from the list",
+      "path": "/?trail=1",
+      "expectText": "Get there",
+      "visual": true,
+      "impact": [
+        "public/index.html",
+        "styles/tailwind-input.css"
+      ]
+    }
+  ]
 }

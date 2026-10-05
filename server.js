@@ -154,29 +154,41 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 // fresh load.
 app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
-// Button press
-app.post('/api/press', async (req, res) => {
+// Trails: a hand-curated, read-only list. Distances and transit routes are
+// plausible but not verified — content the group can correct later.
+app.get('/api/trails', async (req, res) => {
   try {
-    await pool.query(`
-      INSERT INTO presses (user_id, username) VALUES ($1, $2)
-    `, [req.user.id, req.user.username]);
-    res.json({ ok: true });
+    const difficulty = ['easy', 'medium', 'hard'].includes(req.query.difficulty)
+      ? req.query.difficulty
+      : null;
+    const { rows } = await pool.query(`
+      SELECT id, name, description, distance_km, difficulty, start_name,
+             start_lat, start_lng, transit_line, transit_stop, walk_minutes,
+             transit_steps
+      FROM trails
+      ${difficulty ? 'WHERE difficulty = $1' : ''}
+      ORDER BY id
+    `, difficulty ? [difficulty] : []);
+    res.json({ trails: rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Leaderboard
-app.get('/api/leaderboard', async (_req, res) => {
+// One trail, with its full step-by-step transit route.
+app.get('/api/trails/:id', async (req, res) => {
   try {
+    const id = /^\d+$/.test(req.params.id) ? parseInt(req.params.id, 10) : null;
+    if (!id) return res.status(404).json({ error: 'trail_not_found' });
     const { rows } = await pool.query(`
-      SELECT username, COUNT(*) as presses
-      FROM presses
-      GROUP BY username
-      ORDER BY presses DESC
-      LIMIT 50
-    `);
-    res.json({ leaderboard: rows });
+      SELECT id, name, description, distance_km, difficulty, start_name,
+             start_lat, start_lng, transit_line, transit_stop, walk_minutes,
+             transit_steps
+      FROM trails
+      WHERE id = $1
+    `, [id]);
+    if (!rows.length) return res.status(404).json({ error: 'trail_not_found' });
+    res.json({ trail: rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -219,15 +231,224 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Hand-curated trails around Geneva, each with a written transit route from
+// Cornavin. Facts are plausible but not verified; the group can correct them.
+const TRAIL_SEED = [
+  {
+    name: 'Salève foothills loop',
+    description: 'A gentle circuit under the Salève cliffs through woods and open meadows, with the Genevan countryside below.',
+    distance_km: 6.5,
+    difficulty: 'easy',
+    start_name: 'Veyrier-Douane',
+    start_lat: 46.1656,
+    start_lng: 6.1667,
+    transit_line: 'Bus 8',
+    transit_stop: 'Veyrier-Douane',
+    walk_minutes: 10,
+    transit_steps: [
+      { mode: 'tram', label: 'Tram 12', detail: 'Cornavin → Rive, 6 min' },
+      { mode: 'bus', label: 'Bus 8', detail: 'Rive → Veyrier-Douane, 18 min' },
+      { mode: 'walk', label: 'Walk', detail: 'Veyrier-Douane → trailhead under the Salève cliffs, 10 min' },
+    ],
+  },
+  {
+    name: 'Salève summit ridge',
+    description: 'Ride the cable car up and walk the ridge above Geneva, with the lake and the Alps on a clear day.',
+    distance_km: 8.0,
+    difficulty: 'medium',
+    start_name: 'Salève cable-car summit station',
+    start_lat: 46.1458,
+    start_lng: 6.1744,
+    transit_line: 'Bus 8 + Salève cable car',
+    transit_stop: 'Veyrier-Turning',
+    walk_minutes: 5,
+    transit_steps: [
+      { mode: 'tram', label: 'Tram 12', detail: 'Cornavin → Rive, 6 min' },
+      { mode: 'bus', label: 'Bus 8', detail: 'Rive → Veyrier-Turning, 20 min' },
+      { mode: 'cable car', label: 'Salève cable car', detail: 'Veyrier-Turning → summit station, 5 min' },
+      { mode: 'walk', label: 'Walk', detail: 'Summit station → ridge path, 5 min' },
+    ],
+  },
+  {
+    name: 'Allondon valley walk',
+    description: 'Follow the Allondon river through the valley between Dardagny and its confluence with the Rhône, mostly in shade.',
+    distance_km: 8.4,
+    difficulty: 'easy',
+    start_name: 'La Plaine',
+    start_lat: 46.1975,
+    start_lng: 6.0320,
+    transit_line: 'Train L12',
+    transit_stop: 'La Plaine',
+    walk_minutes: 5,
+    transit_steps: [
+      { mode: 'train', label: 'Léman Express L12', detail: 'Cornavin → La Plaine, 21 min' },
+      { mode: 'walk', label: 'Walk', detail: 'La Plaine → Allondon river path, 5 min' },
+    ],
+  },
+  {
+    name: 'Vuache ridge crossing',
+    description: 'A long day out along the Vuache ridge, the last fold of the Jura before the Rhône cuts through it.',
+    distance_km: 13.2,
+    difficulty: 'hard',
+    start_name: 'Cheisy',
+    start_lat: 46.1180,
+    start_lng: 5.9060,
+    transit_line: 'Train L1',
+    transit_stop: 'Cheisy',
+    walk_minutes: 15,
+    transit_steps: [
+      { mode: 'train', label: 'Léman Express L1', detail: 'Cornavin → Cheisy, 32 min' },
+      { mode: 'walk', label: 'Walk', detail: 'Cheisy → southern slopes of the Vuache, 15 min' },
+    ],
+  },
+  {
+    name: "Fort de l'Écluse gorge",
+    description: 'Climb through the gorge the Rhône has cut through the Jura, between the lower and the upper fort.',
+    distance_km: 7.5,
+    difficulty: 'medium',
+    start_name: "Fort-l'Écluse lower fort",
+    start_lat: 46.1278,
+    start_lng: 5.8686,
+    transit_line: 'Train L1',
+    transit_stop: "Fort-l'Écluse",
+    walk_minutes: 8,
+    transit_steps: [
+      { mode: 'train', label: 'Léman Express L1', detail: "Cornavin → Fort-l'Écluse, 35 min" },
+      { mode: 'walk', label: 'Walk', detail: "Fort-l'Écluse stop → lower fort entrance, 8 min" },
+    ],
+  },
+  {
+    name: 'Hermance lakefront stroll',
+    description: 'An easy stretch of lake shore between Anières and Hermance village, flat and suitable for everyone.',
+    distance_km: 5.0,
+    difficulty: 'easy',
+    start_name: 'Hermance village',
+    start_lat: 46.2790,
+    start_lng: 6.2555,
+    transit_line: 'Bus E',
+    transit_stop: 'Hermance',
+    walk_minutes: 3,
+    transit_steps: [
+      { mode: 'tram', label: 'Tram 12', detail: 'Cornavin → Rive, 6 min' },
+      { mode: 'bus', label: 'Bus E', detail: 'Rive → Hermance, 35 min' },
+      { mode: 'walk', label: 'Walk', detail: 'Hermance stop → lakefront path, 3 min' },
+    ],
+  },
+  {
+    name: "Vesancy and the Grotte d'Orbe",
+    description: 'Woods and pasture around Vesancy in the Pays de Gex, with a short detour to the Grotte d\'Orbe cave.',
+    distance_km: 9.5,
+    difficulty: 'medium',
+    start_name: 'Vesancy village',
+    start_lat: 46.3655,
+    start_lng: 6.1710,
+    transit_line: 'Train L + Bus 830',
+    transit_stop: 'Vesancy',
+    walk_minutes: 10,
+    transit_steps: [
+      { mode: 'train', label: 'Léman Express L', detail: 'Cornavin → Nyon, 25 min' },
+      { mode: 'bus', label: 'Bus 830', detail: 'Nyon → Vesancy, 20 min' },
+      { mode: 'walk', label: 'Walk', detail: "Vesancy → Grotte d'Orbe path, 10 min" },
+    ],
+  },
+  {
+    name: 'Chancy Rhône riverside',
+    description: 'A quiet walk along the Rhône at Chancy, the westernmost village of Switzerland, on easy riverside paths.',
+    distance_km: 7.0,
+    difficulty: 'easy',
+    start_name: 'Chancy',
+    start_lat: 46.1862,
+    start_lng: 5.9720,
+    transit_line: 'Train L1',
+    transit_stop: 'Chancy',
+    walk_minutes: 5,
+    transit_steps: [
+      { mode: 'train', label: 'Léman Express L1', detail: 'Cornavin → Chancy, 30 min' },
+      { mode: 'walk', label: 'Walk', detail: 'Chancy stop → Rhône riverbank, 5 min' },
+    ],
+  },
+];
+
+// Two obviously fake rows so a populated staging preview is never mistaken
+// for real content. Strictly no-op outside staging.
+const STAGING_TRAIL_SEED = [
+  {
+    name: 'Staging demo — Mont Blanc from the pier',
+    description: 'A staging-only placeholder trail with made-up facts, so the populated screen can be seen before real data lands.',
+    distance_km: 3.0,
+    difficulty: 'easy',
+    start_name: 'Demo pier',
+    start_lat: 46.2044,
+    start_lng: 6.1432,
+    transit_line: 'Bus 99',
+    transit_stop: 'Demo quay',
+    walk_minutes: 4,
+    transit_steps: [
+      { mode: 'bus', label: 'Bus 99', detail: 'Cornavin → Demo quay, 9 min' },
+      { mode: 'walk', label: 'Walk', detail: 'Demo quay → demo trailhead, 4 min' },
+    ],
+  },
+  {
+    name: 'Staging demo — Volcano crater rim',
+    description: 'A second staging-only placeholder, deliberately absurd: there is no volcano near Geneva.',
+    distance_km: 21.0,
+    difficulty: 'hard',
+    start_name: 'Demo crater',
+    start_lat: 46.0200,
+    start_lng: 6.7000,
+    transit_line: 'Train LX',
+    transit_stop: 'Demo halt',
+    walk_minutes: 44,
+    transit_steps: [
+      { mode: 'train', label: 'Léman Express LX', detail: 'Cornavin → Demo halt, 90 min' },
+      { mode: 'walk', label: 'Walk', detail: 'Demo halt → crater rim, 44 min' },
+    ],
+  },
+];
+
+// One curated trail per insert, idempotent on the name: re-boots and
+// re-deploys never duplicate rows. The unique index makes ON CONFLICT work.
+async function seedTrails(rows) {
+  for (const t of rows) {
+    await pool.query(`
+      INSERT INTO trails (name, description, distance_km, difficulty,
+                          start_name, start_lat, start_lng,
+                          transit_line, transit_stop, walk_minutes, transit_steps)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      ON CONFLICT (name) DO NOTHING
+    `, [
+      t.name, t.description, t.distance_km, t.difficulty,
+      t.start_name, t.start_lat, t.start_lng,
+      t.transit_line, t.transit_stop, t.walk_minutes, JSON.stringify(t.transit_steps),
+    ]);
+  }
+}
+
 async function start() {
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS presses (
+    CREATE TABLE IF NOT EXISTS trails (
       id SERIAL PRIMARY KEY,
-      user_id INTEGER NOT NULL,
-      username VARCHAR(255) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      distance_km NUMERIC(4,1) NOT NULL,
+      difficulty VARCHAR(10) NOT NULL CHECK (difficulty IN ('easy','medium','hard')),
+      start_name VARCHAR(255) NOT NULL,
+      start_lat DOUBLE PRECISION NOT NULL,
+      start_lng DOUBLE PRECISION NOT NULL,
+      transit_line VARCHAR(63) NOT NULL,
+      transit_stop VARCHAR(255) NOT NULL,
+      walk_minutes INTEGER NOT NULL,
+      transit_steps JSONB NOT NULL DEFAULT '[]',
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+  // Public table (no user data, nothing sensitive), and append-only: this
+  // app never UPDATEs or DELETEs a trail, and v1 has no write path.
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS trails_name_unique ON trails (name)
+  `);
+  await seedTrails(TRAIL_SEED);
+  if (IS_STAGING) await seedTrails(STAGING_TRAIL_SEED);
   const server = app.listen(port, () => console.log(`Listening on :${port}`));
   // Let Envoy retire idle upstream connections at 60s, with a 15s margin.
   server.keepAliveTimeout = 75_000;
